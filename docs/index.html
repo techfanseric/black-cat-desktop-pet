@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f8f8ef">
+  <meta name="description" content="黑猫桌宠会跟你一起敲键盘、握鼠标，也喜欢被摸摸头。看实际演示，下载 macOS 版。">
+  <title>黑猫桌宠 · 在 Mac 上养一只黑猫</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header><a class="brand" href="./"><i class="eyes" aria-hidden="true"></i>黑猫桌宠</a><a lang="en" href="https://github.com/techfanseric/black-cat-desktop-pet">GitHub</a></header>
+  <main>
+    <section class="hero" aria-labelledby="intro">
+      <div class="intro">
+        <h1 id="intro">键盘旁，<br>坐了只黑猫<span>。</span></h1>
+        <p>你敲键，它就跟着敲。你移动鼠标，它也伸爪握住自己的那只。工作间隙，把指针放在它头上，等它眯起眼睛。</p>
+        <a class="download" href="https://github.com/techfanseric/black-cat-desktop-pet/releases/download/v2.1.0/Black-Cat-Desktop-Pet-2.1.0-macOS.zip">下载 Mac 版</a>
+        <small>v2.1.0 · macOS 13+ · Apple Silicon / Intel</small>
+      </div>
+      <figure>
+        <div class="stage">
+          <video id="film" controls muted loop playsinline preload="auto" width="840" height="720" aria-label="桌宠动作演示" src="media/mouse-and-petting.mp4"></video>
+        </div>
+        <figcaption>
+          <div id="clips" hidden role="group" aria-label="选择演示">
+            <button type="button" data-film="mouse-and-petting" aria-pressed="true">摸摸头</button>
+            <button type="button" data-film="typing" aria-pressed="false">敲键盘</button>
+            <button type="button" data-film="gestures" aria-pressed="false">逗逗猫</button>
+          </div>
+          <p id="caption" aria-live="polite">指针停在两耳之间，它会眯眼，朝你的手轻轻蹭过来。</p>
+        </figcaption>
+      </figure>
+    </section>
+    <section class="install" aria-labelledby="install">
+      <h2 id="install">把它带到桌面</h2>
+      <div>
+        <p>解压下载包，把「黑猫桌宠」拖进「应用程序」并打开。它会坐在屏幕右下角，按住身体就能挪窝。</p>
+        <p>从菜单栏 🐾 打开「打字测试窗」，按一下 F 和 J。想让猫在其他应用里也跟着敲，可以从同一菜单启用「输入监控」。</p>
+        <p class="detail">此版本使用本地签名，未经 Apple 公证，首次打开时系统可能拦截。</p>
+        <a href="https://github.com/techfanseric/black-cat-desktop-pet/releases/tag/v2.1.0">发行说明</a> ·
+        <a href="https://github.com/techfanseric/black-cat-desktop-pet#readme">完整使用说明</a>
+      </div>
+    </section>
+  </main>
+  <script>
+    const clips = document.querySelector("#clips");
+    const film = document.querySelector("#film");
+    const captions = {
+      "mouse-and-petting": document.querySelector("#caption").textContent,
+      typing: "交替按下 F 和 J，看爪尖落在哪颗键帽上。",
+      gestures: "侧面靠近时转耳，安静时舔两下爪子；在脸旁来回逗，它会伸爪留下三道抓痕。"
+    };
+    clips.hidden = false;
+    if (!matchMedia("(prefers-reduced-motion: reduce)").matches) film.play().catch(() => {});
+    clips.addEventListener("click", event => {
+      const choice = event.target.closest("button[data-film]");
+      if (!choice) return;
+      const name = choice.dataset.film;
+      for (const button of clips.querySelectorAll("button")) button.setAttribute("aria-pressed", String(button === choice));
+      film.src = `media/${name}.mp4`;
+      document.querySelector("#caption").textContent = captions[name];
+      film.play().catch(() => {});
+    });
+  </script>
+</body>
+</html>

@@ -6,6 +6,10 @@
 
 ## 在 Mac 上运行
 
+从[项目介绍页](https://techfanseric.github.io/black-cat-desktop-pet/)看动作演示，或从 [GitHub Releases](https://github.com/techfanseric/black-cat-desktop-pet/releases) 下载打包好的 Mac 应用。解压后，把「黑猫桌宠」拖进「应用程序」并打开。通用包支持 Apple Silicon 和 Intel，最低系统为 macOS 13。此版本采用本地签名，未经 Apple 公证。
+
+### 从源码构建
+
 需要 macOS 13 或以上版本，以及带有 `swiftc` 和 `make` 的 Xcode Command Line Tools。首次配置开发工具可运行 `xcode-select --install`。下载或克隆本仓库后，在仓库根目录执行：
 
 ```sh
