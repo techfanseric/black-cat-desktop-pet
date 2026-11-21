@@ -18,6 +18,10 @@ struct BlackCatPose {
     var excitement: CGFloat = 0
     var phase: CGFloat = 0
     var mix: SIMD4<Double>?
+    var gesture: GestureFrame?
+    var mouseOffset = CGPoint.zero
+    var enjoying: CGFloat = 0
+    var cheek: CGFloat = 0
 }
 
 private func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x, y: y) }
@@ -75,9 +79,7 @@ struct BlackCatArtwork {
         let perspective = 1 + depth*0.12
         return point(160 + across*151/perspective + depth*5, 202 + (depth * -32 + across*7 - height)/perspective)
     }
-    private static let mouseCenter = desk(-0.588,0.115,3)
-
-    static func draw(_ design: BlackCatDesign, pose: BlackCatPose, in ctx: CGContext) {
+    @discardableResult static func draw(_ design: BlackCatDesign, pose: BlackCatPose, in ctx: CGContext) -> CGPoint {
         ctx.saveGState()
         defer { ctx.restoreGState() }
         ctx.setLineCap(.round); ctx.setLineJoin(.round)
@@ -97,17 +99,33 @@ struct BlackCatArtwork {
         let settled = ease((reach-0.60)/0.40)
         let stepping = sin(.pi*reach)
         let pressing = ease(press)
+        let mouseCenter = desk(-0.588+pose.mouseOffset.x,0.115+pose.mouseOffset.y,3)
+        let mouseRest = desk(-0.588,0.115,3)
+        let nuzzle = pose.enjoying * (pose.cheek*5 + 1.4*sin(pose.phase*0.28))
+        let gesture = pose.gesture
+        let grooming = gesture?.kind == .groom ? gesture!.lift : 0
+        let swiping = gesture?.kind == .scratch ? gesture!.lift : 0
+        let side = gesture?.side ?? -1
+        let lick = gesture?.lick ?? 0
+        let stroke = gesture?.slash ?? 0
+        func claw(_ progress: CGFloat) -> CGPoint {
+            point(140 + side * (48 + 21 * progress + 12 * progress * progress),
+                  53 + 57 * progress)
+        }
         func body(_ across: CGFloat, _ level: CGFloat) -> CGPoint {
             let upper = ease(level)
-            let center = 146 - shift*weight*upper + 3.5*settled*(1-upper)
+            let lean = -5 * grooming + side * swiping * (11 + 5 * stroke)
+            let follow = (mouseCenter.x-mouseRest.x)*0.44*settled + nuzzle
+            let center = 146 + (lean + follow - shift*weight)*upper + 3.5*settled*(1-upper)
             let widening = 1 + 0.08*stepping*sin(.pi*level) + 0.035*pressing
+            let rise = (mouseCenter.y-mouseRest.y)*0.27*settled - 4*pose.enjoying
             return point(center + across*widening,
-                         178 + (headY-178)*level + upper*(4*stepping+1.7*settled+2.8*pressing))
+                         178 + (headY-178)*level + upper*(rise + 4*stepping+1.7*settled+2.8*pressing + 8*grooming + 3*lick - 6*swiping))
         }
         let head = body(0,1)
         let hip = body(0,0)
         ink.oval(CGColor(gray:0,alpha:0.10),hip.x-39,180,85,10)
-        let tailLift = mix([0,0,-9,7]) + sin(pose.phase)*pose.excitement*6
+        let tailLift = mix([0,0,-9,7]) + sin(pose.phase)*pose.excitement*6 + pose.enjoying*(3*sin(pose.phase*0.26)-5)
         ink.stroke(fur,9) { path in
             path.start(hip.x+17,hip.y-9)
             path.cubic(hip.x+58,hip.y+2,hip.x+49,hip.y-33+tailLift,hip.x+75,hip.y-33+tailLift)
@@ -123,7 +141,7 @@ struct BlackCatArtwork {
         let highlight = [(pose.leftTarget,pose.leftPress),(pose.rightTarget,press)].compactMap {
             $0.1 > 0.65 ? $0.0 : nil
         }
-        drawDesk(ink, highlight:highlight)
+        drawDesk(ink, highlight:highlight, mouseCenter:mouseCenter)
         let mouseStep = ease((reach-0.10)/0.85)
         let keyStep = ease((press-0.06)/0.91)
         var left = blend(point(133,184),point(mouseCenter.x,mouseCenter.y-2),mouseStep)
@@ -133,46 +151,86 @@ struct BlackCatArtwork {
             left = blend(left,target,ease(pose.leftPress))
         }
         right.y -= 4*sin(.pi*keyStep)
+        let leftLift = grooming + (side < 0 ? swiping : 0)
+        let rightLift = side > 0 ? swiping : 0
+        let pawAtMouth = point(head.x-22,head.y+22*headSize)
+        left = blend(blend(left,point(head.x-37,head.y+48),grooming),claw(stroke),side < 0 ? swiping : 0)
+        right = blend(right,claw(stroke),rightLift)
+        if let gesture, gesture.markAlpha > 0 {
+            for tine in -1...1 {
+                let offset = CGFloat(tine) * 4
+                let start = claw(0), end = claw(stroke)
+                let control = point(start.x + side * 10.5 * stroke, start.y + 28.5 * stroke)
+                for (paint,width) in [(CGColor(gray:0.12,alpha:0.67*gesture.markAlpha),2.5),
+                                      (CGColor(gray:1,alpha:0.91*gesture.markAlpha),1.1)] {
+                    ink.stroke(paint,width) { path in
+                        path.start(start.x+offset,start.y-2)
+                        path.addQuadCurve(to:point(end.x+offset,end.y-2),control:point(control.x+offset,control.y-2))
+                    }
+                }
+            }
+        }
+        func tip(_ paw: CGPoint, _ angle: Double, _ x: Double, _ y: Double) -> CGPoint {
+            point(paw.x+x*cos(angle)-y*sin(angle),paw.y+x*sin(angle)+y*cos(angle))
+        }
+        let leftAngle = (side < 0 ? 2.55*swiping : 0)
+        let rightAngle = -2.55*rightLift
+        func lp(_ x: Double,_ y: Double) -> CGPoint { tip(left,leftAngle,x,y) }
+        func rp(_ x: Double,_ y: Double) -> CGPoint { tip(right,rightAngle,x,y) }
         let leftAxilla = body(-13,0.27+0.23*mouseStep)
         let rightAxilla = body(13,0.27+0.14*keyStep)
-        let leftWrist = point(left.x-5.0,left.y-4.0)
-        let rightWrist = point(right.x+5.0,right.y-4.0)
+        let leftWrist = lp(-5,-4), rightWrist = rp(5,-4)
         ink.shape(fur) { path in
             path.move(to:body(-20,0.92))
             path.addCurve(to:body(-23,0.68),control1:body(-19,0.83),control2:body(-22,0.75))
             path.addCurve(to:leftWrist,control1:body(-24,0.61),
-                          control2:point(leftWrist.x+11*mouseStep,leftWrist.y-20))
-            path.cubic(left.x-6.5-2*mouseStep,left.y-1,left.x-6.8,left.y+3.6,left.x-2,left.y+4.1)
-            path.cubic(left.x+2.7,left.y+4.6,left.x+5.5,left.y+2.5,left.x+5.5,left.y-1.6)
-            path.addCurve(to:leftAxilla,control1:point(left.x+5.5,left.y-10),
-                          control2:point(leftAxilla.x-3-8*mouseStep,leftAxilla.y+16))
+                          control2:blend(lp(-5+11*mouseStep,-24),lp(-5,-8),grooming))
+            path.addCurve(to:lp(-2,4.1),control1:lp(-6.5-2*mouseStep,-1),control2:lp(-6.8,3.6))
+            path.addCurve(to:lp(5.5,-1.6),control1:lp(2.7,4.6),control2:lp(5.5,2.5))
+            path.addCurve(to:leftAxilla,control1:lp(5.5,-10-13*swiping),
+                          control2:point(leftAxilla.x-3-8*mouseStep-12*leftLift,leftAxilla.y+16-9*leftLift))
             path.addCurve(to:body(0,0.15),control1:point(leftAxilla.x+3,leftAxilla.y-8),control2:body(-9,0.15))
             path.addCurve(to:rightAxilla,control1:body(10,0.15),control2:point(rightAxilla.x-3,rightAxilla.y-8))
-            path.addCurve(to:point(right.x-5.5,right.y-2),control1:point(rightAxilla.x+3,rightAxilla.y+9),
-                          control2:point(right.x-5.5,right.y-11))
-            path.cubic(right.x-5.5,right.y+2,right.x-3,right.y+4.6,right.x+1.5,right.y+4.2)
-            path.cubic(right.x+6.5,right.y+4,right.x+7,right.y,rightWrist.x,rightWrist.y)
-            path.addCurve(to:body(23,0.68),control1:point(rightWrist.x-3*keyStep,rightWrist.y-17),control2:body(25,0.60))
+            path.addCurve(to:rp(-5.5,-2),control1:point(rightAxilla.x+3+20*rightLift,rightAxilla.y+9-9*rightLift),
+                          control2:rp(-5.5,-11-13*rightLift))
+            path.addCurve(to:rp(1.5,4.2),control1:rp(-5.5,2),control2:rp(-3,4.6))
+            path.addCurve(to:rightWrist,control1:rp(6.5,4),control2:rp(7,0))
+            path.addCurve(to:body(23,0.68),control1:rp(5-3*keyStep,-21),control2:body(25,0.60))
             path.addCurve(to:body(20,0.92),control1:body(21,0.76),control2:body(19,0.85))
         }
-        for (paw,side,amount) in [(left,-1.0,mouseStep),(right,1.0,keyStep)] {
+        for (paw,side,amount) in [(left,-1.0,max(mouseStep,leftLift)),(right,1.0,max(keyStep,rightLift))] {
             ink.stroke(seam.copy(alpha:0.70*(1-amount))!,0.65) { path in
                 path.move(to:point(paw.x-side*4.5,paw.y-3))
                 path.addQuadCurve(to:body(side*8,0.23),control:point(paw.x-side*4.2,paw.y-12))
             }
         }
+        let edge = color(0.32,0.32,0.34)
+        for (paw, angle, sign, opacity) in [(left,leftAngle,-1.0,1-grooming),(right,rightAngle,1.0,1.0)] {
+            func pad(_ x: Double,_ y: Double) -> CGPoint { tip(paw,angle,sign*x,y) }
+            ink.stroke(edge.copy(alpha:0.82*opacity)!,0.95) { path in
+                path.move(to:pad(4.8,-6))
+                path.addQuadCurve(to:pad(4.9,2),control:pad(7,-1))
+                path.addQuadCurve(to:pad(-4.4,2.6),control:pad(1.2,6))
+            }
+            ink.stroke(edge.copy(alpha:0.64*opacity)!,0.8) { path in
+                path.move(to:pad(1.3,3.4))
+                path.addQuadCurve(to:pad(1,-0.3),control:pad(2,1.4))
+            }
+        }
         ctx.saveGState()
         ctx.translateBy(x:head.x,y:head.y)
-        ctx.rotate(by:tilt*(0.35+0.65*reach))
+        ctx.rotate(by:tilt*(0.35+0.65*reach)+0.17*grooming+side*0.06*swiping+nuzzle*0.026)
         ctx.scaleBy(x:headSize,y:headSize)
         let earTop = mix([-29,-34,-29,-25])
+        let flick = gesture?.ear ?? 0
+        let le = side < 0 ? flick : 0, re = side > 0 ? flick : 0
         ink.shape(fur) { path in
             path.start(-28,-5)
-            path.cubic(-30,-12,-27,earTop-1,-23,earTop)
-            path.cubic(-20,earTop-1,-15,-20,-12,-18)
+            path.cubic(-30,-12,-27-8*le,earTop-1+9*le,-23-10*le,earTop+9*le)
+            path.cubic(-20-8*le,earTop-1+8*le,-15,-20,-12,-18)
             path.cubic(-4,-20,5,-20,12,-18)
-            path.cubic(18,-23,21,earTop-2,25,earTop-1)
-            path.cubic(28,earTop,29,-15,28,-7)
+            path.cubic(18,-23,21+8*re,earTop-2+8*re,25+10*re,earTop-1+9*re)
+            path.cubic(28+8*re,earTop+9*re,29,-15,28,-7)
             path.cubic(36,11,24,23,4,24)
             path.cubic(-16,25,-37,16,-28,-5)
         }
@@ -180,16 +238,26 @@ struct BlackCatArtwork {
         for side in [-1.0,1.0] {
             let wide = mix([8.9,8.9,10.4,8.9]), tall = mix([7.9,7.9,10.6,4.2])
             let eyeY = side*mix([0,0,1.3,0])-1
-            let pupilWidth = mix([3.2,3.2,2.5,3.2])
-            let factor = 1-max(0,min(1,pose.blink))
+            let pupilWidth = mix([3.5,3.5,3.2,3.2])
+            let pupilHeight = tall * 0.66
+            let factor = (1-pose.enjoying)*(1-max(0,min(1,max(pose.blink,0.43*grooming+0.46*lick))))
             ctx.saveGState()
             ctx.translateBy(x:side*13.0,y:eyeY)
             ctx.rotate(by:side * mix([0,0,0,-0.16]))
+            ctx.saveGState()
+            ctx.setAlpha(1-pose.enjoying)
             let eyeRect = CGRect(x:-wide,y:-max(0.6,tall*factor),width:wide*2,height:max(1.2,tall*factor*2))
             ctx.addEllipse(in:eyeRect); ctx.clip()
             ctx.setFillColor(lime); ctx.fill(eyeRect)
             if factor > 0.13 {
-                ink.oval(fur, gaze.x*(wide-pupilWidth-0.8)-pupilWidth, gaze.y*tall*0.45 - tall*0.70, pupilWidth*2, tall*1.43)
+                ink.oval(fur, gaze.x*(wide-pupilWidth-0.8)-pupilWidth, gaze.y*tall*0.45-pupilHeight, pupilWidth*2, pupilHeight*2)
+            }
+            ctx.restoreGState()
+            if pose.enjoying > 0.001 {
+                ink.stroke(lime.copy(alpha:pose.enjoying)!,1.45) { path in
+                    path.start(-wide*0.87,0)
+                    path.addQuadCurve(to:point(wide*0.87,0),control:point(0,4.2*pose.enjoying))
+                }
             }
             ctx.restoreGState()
             for strand in 0..<3 {
@@ -201,13 +269,43 @@ struct BlackCatArtwork {
             }
         }
         ctx.restoreGState()
+        if grooming > 0.01 {
+            let end = blend(left,pawAtMouth,grooming)
+            let angle = atan2(end.y-left.y,end.x-left.x)
+            func foreleg(_ fraction: Double, _ along: Double, _ across: Double) -> CGPoint {
+                tip(blend(left,end,fraction),angle,along*grooming,across*grooming)
+            }
+            func pawEdge(_ path: CGMutablePath) {
+                path.move(to:foreleg(0,0,-5))
+                path.addCurve(to:foreleg(1,-3,-6),control1:foreleg(0.3,0,-5),control2:foreleg(0.8,0,-7))
+                path.addCurve(to:foreleg(1,-2,6),control1:foreleg(1,5,-6),control2:foreleg(1,5,5))
+                path.addQuadCurve(to:foreleg(0,0,5),control:foreleg(0.4,0,5))
+            }
+            ink.shape(color(0.075+0.048*grooming,0.077+0.047*grooming,0.085+0.049*grooming)) { path in
+                pawEdge(path)
+                path.addQuadCurve(to:foreleg(0,0,-5),control:foreleg(0,-9,0))
+            }
+            ink.stroke(edge.copy(alpha:0.84*grooming)!,0.95,pawEdge)
+            ink.stroke(edge.copy(alpha:grooming)!,0.85) { path in
+                path.move(to:foreleg(1,1.7,-2))
+                path.addQuadCurve(to:foreleg(1,-1.2,-1),control:foreleg(1,0,-2))
+            }
+            if lick > 0.01 {
+                ink.stroke(color(0.91,0.55,0.59),3.2*lick) { path in
+                    path.start(head.x-12,head.y+16*headSize)
+                    path.addQuadCurve(to:point(head.x-12-9*lick,head.y+16*headSize+4*lick),
+                                      control:point(head.x-14,head.y+16*headSize+6*lick))
+                }
+            }
+        }
+        return head
     }
 
     static func keyCenter(row: Int, column: Int) -> CGPoint {
         let offset = row == 4 && column == 4 ? 0.1745 : 0.0335
         return desk(-0.452+CGFloat(column)*0.0708+offset,-0.26+CGFloat(row)*0.17+0.079,4.2)
     }
-    private static func drawDesk(_ ink: Ink, highlight: [CGPoint]) {
+    private static func drawDesk(_ ink: Ink, highlight: [CGPoint], mouseCenter: CGPoint) {
         func tile(_ left: CGFloat,_ near: CGFloat,_ right: CGFloat,_ far: CGFloat,_ height: CGFloat,_ fill: CGColor) {
             ink.shape(fill) { path in
                 path.move(to:desk(left,near,height)); path.addLine(to:desk(right,near,height))

@@ -24,6 +24,12 @@ private struct Cap {
     let time: TimeInterval
 }
 
+private func screenFraction(_ pointer: CGPoint, in desktop: CGRect) -> CGPoint? {
+    guard !desktop.isEmpty else { return nil }
+    return CGPoint(x:min(1,max(0,(pointer.x-desktop.minX)/desktop.width)),
+                   y:min(1,max(0,(pointer.y-desktop.minY)/desktop.height)))
+}
+
 private let rows: [[(String, UInt16)]] = [
     [("1",18),("2",19),("3",20),("4",21),("5",23),("6",22),("7",26),("8",28),("9",25),("0",29)],
     [("Q",12),("W",13),("E",14),("R",15),("T",17),("Y",16),("U",32),("I",34),("O",31),("P",35)],
@@ -46,6 +52,10 @@ private final class CatView: NSView {
     var now = ProcessInfo.processInfo.systemUptime
     var gaze = CGPoint.zero
     var pointerActivity = 0.0
+    private(set) var mouseOffset = CGPoint.zero
+    var previewTouch: CGPoint?
+    private var headCenter = CGPoint(x:146,y:84)
+    private var cursorHeadCenter = CGPoint.zero
     var clicked = false
     var caps: [Cap] = []
     var typingActivity = 0.0
@@ -65,20 +75,28 @@ private final class CatView: NSView {
         caps.append(key)
         if caps.count > 5 { caps.removeFirst() }
         let point = keyPosition(code)
-        strokes[point.x < 155 ? 0 : 1] = key
+        strokes[point.x < 155 && time >= mouseUntil && pointerActivity < 0.8 ? 0 : 1] = key
     }
 
     func animate(at time: TimeInterval, toward look: CGPoint, moved: Bool, clicked: Bool,
-                 speed: Double? = nil, scroll: Bool = false) {
+                 speed: Double? = nil, scroll: Bool = false, pointer: CGPoint? = nil, screenPosition: CGPoint? = nil) {
         now = time
         self.clicked = clicked
-        if moved || clicked || scroll { mouseUntil = time + 0.55 }
-        let target = time < mouseUntil ? 1.0 : 0.0
-        pointerActivity += (target - pointerActivity) * (target > 0 ? 0.27 : 0.17)
         let lastKeyAge = caps.last.map { time - $0.time } ?? 1
         let typingTarget = lastKeyAge < 0.36 ? 1.0 : 0.0
-        behavior.update(time:time,speed:speed ?? (moved ? 160 : 0),scroll:scroll,down:clicked,
-                        typing:typingTarget > 0,fixed:fixedDesign)
+        let velocity = speed ?? (moved ? 160 : 0)
+        let touch = dragOrigin == nil && velocity < 440 && !scroll && typingTarget == 0 ? pointer.flatMap(touchAt) : nil
+        if touch == nil && (moved || clicked || scroll) { mouseUntil = time + 0.55 }
+        let target = touch == nil ? (time < mouseUntil ? 1.0 : 0.0) : (pointerActivity > 0.5 ? 1.0 : 0.0)
+        pointerActivity += (target - pointerActivity) * (target > 0 ? 0.27 : 0.17)
+        if target > 0, touch == nil, let screenPosition {
+            let desiredMouseOffset = CGPoint(x:-0.115+0.156*screenPosition.x,y:-0.34+0.68*screenPosition.y)
+            let coupling = min(1,max(0,(pointerActivity-0.45)/0.45))
+            mouseOffset.x += (desiredMouseOffset.x-mouseOffset.x)*coupling
+            mouseOffset.y += (desiredMouseOffset.y-mouseOffset.y)*coupling
+        }
+        behavior.update(time:time,speed:velocity,scroll:scroll,down:clicked,
+                        typing:typingTarget > 0,fixed:fixedDesign,pointer:pointer,headTouch:touch)
         typingActivity += (typingTarget - typingActivity) * 0.28
         gaze = CGPoint(x: gaze.x * 0.75 + look.x * 0.25, y: gaze.y * 0.75 + look.y * 0.25)
         caps.removeAll { time - $0.time > 0.6 }
@@ -88,7 +106,9 @@ private final class CatView: NSView {
     func animateDemo(frame: Int, at time: TimeInterval) {
         let usingMouse = (14...45).contains(frame) || (107...143).contains(frame)
         let look = CGPoint(x: sin(Double(frame) * 0.16) * 7, y: cos(Double(frame) * 0.10) * 6)
-        animate(at: time, toward: look, moved: usingMouse, clicked: frame == 33 || frame == 119)
+        let position = CGPoint(x:0.5+look.x/14,y:0.5-look.y/12)
+        animate(at: time, toward: look, moved: usingMouse, clicked: frame == 33 || frame == 119,
+                screenPosition:usingMouse ? position : nil)
         let letters: [(UInt16, String)] = [(3,"F"),(38,"J"),(1,"S"),(56,"⇧"),(49,"␣"),(37,"L"),(9,"V")]
         if (58...105).contains(frame), frame % 7 == 2 {
             let key = letters[(frame / 7) % letters.count]
@@ -98,7 +118,42 @@ private final class CatView: NSView {
         if frame == 113 || frame == 125 || frame == 137 { hit(code: 3, label: "F") }
     }
 
+    func artworkPoint(_ local: CGPoint) -> CGPoint {
+        let size = BlackCatArtwork.size
+        let scale = min(bounds.width/size.width,bounds.height/size.height)
+        return CGPoint(x:(local.x-bounds.midX)/scale+size.width/2,y:(local.y-bounds.midY)/scale+size.height/2)
+    }
+
+    func animateTouchDemo(frame: Int, time: Double) {
+        let moving = (12..<83).contains(frame)
+        let stroking = (83..<168).contains(frame)
+        let phase = Double(frame-12)*0.10
+        let position = CGPoint(x:0.5+0.5*sin(phase),y:0.5-0.5*cos(phase))
+        previewTouch = stroking ? CGPoint(x:headCenter.x+16*sin(phase),y:headCenter.y-17) : nil
+        animate(at:time,toward:CGPoint(x:cos(phase)*5,y:-3),moved:moving || stroking,clicked:false,
+                speed:stroking ? 90 : nil,pointer:previewTouch,screenPosition:moving ? position : nil)
+    }
+
+    private func touchAt(_ point: CGPoint) -> Double? {
+        let across = (point.x-headCenter.x)/30
+        let vertical = (point.y-headCenter.y+7)/25
+        return hypot(across,vertical) <= 1 ? across : nil
+    }
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        let scale = min(bounds.width/280,bounds.height/240)
+        let origin = artworkPoint(.zero)
+        cursorHeadCenter = headCenter
+        addCursorRect(NSRect(x:(headCenter.x-origin.x-23)*scale,y:(headCenter.y-origin.y-25)*scale,
+                             width:46*scale,height:36*scale),cursor:.pointingHand)
+    }
+
     override func mouseDown(with event: NSEvent) {
+        if touchAt(artworkPoint(convert(event.locationInWindow,from:nil))) != nil {
+            dragOrigin = nil
+            return
+        }
         dragOrigin = NSEvent.mouseLocation
         windowOrigin = window?.frame.origin
     }
@@ -111,6 +166,11 @@ private final class CatView: NSView {
     }
 
     override func rightMouseDown(with event: NSEvent) { showMenu?(event) }
+
+    override func mouseUp(with event: NSEvent) {
+        dragOrigin = nil
+        windowOrigin = nil
+    }
 
     private func fill(_ color: NSColor, _ path: CGPath, in context: CGContext) {
         context.setFillColor(color.cgColor)
@@ -177,6 +237,10 @@ private final class CatView: NSView {
         var pose = BlackCatPose(mouse:pointerActivity,gaze:CGPoint(x:gaze.x/8,y:gaze.y/8),
                                 blink:max(0,1-abs(now.truncatingRemainder(dividingBy:4.35)-0.13)/0.13))
         pose.mix = behavior.weights
+        pose.gesture = behavior.gesture
+        pose.mouseOffset = mouseOffset
+        pose.enjoying = behavior.enjoying
+        pose.cheek = behavior.cheek
         pose.excitement = min(1,CGFloat(caps.count)/4) + behavior.weights[2]*0.5
         pose.phase = now*10
         for (index,event) in strokes.enumerated() {
@@ -188,7 +252,15 @@ private final class CatView: NSView {
             else { pose.rightTarget = target; pose.keyPress = strength }
         }
         pose.gaze.y = min(1,pose.gaze.y*(1-typingActivity)+typingActivity*0.9)
-        BlackCatArtwork.draw(behavior.selected,pose:pose,in:ctx)
+        headCenter = BlackCatArtwork.draw(behavior.selected,pose:pose,in:ctx)
+        if hypot(cursorHeadCenter.x-headCenter.x,cursorHeadCenter.y-headCenter.y) > 3 {
+            window?.invalidateCursorRects(for:self)
+        }
+        if let previewTouch {
+            let cursor = NSCursor.pointingHand
+            cursor.image.draw(in:NSRect(origin:CGPoint(x:previewTouch.x-cursor.hotSpot.x,y:previewTouch.y-cursor.hotSpot.y),
+                                        size:cursor.image.size),from:.zero,operation:.sourceOver,fraction:1,respectFlipped:true,hints:nil)
+        }
         for (index,cap) in caps.enumerated() {
             let age = max(0,now-cap.time)
             guard age < 0.52 else { continue }
@@ -507,6 +579,11 @@ private final class DesktopCat: NSObject, NSApplicationDelegate {
     private var source: CFRunLoopSource?
     private var timer: Timer?
     private var lastPointer = NSEvent.mouseLocation
+    private var desktopFrame = NSScreen.screens.reduce(CGRect.null) { $0.union($1.frame) }
+
+    func applicationDidChangeScreenParameters(_ notification: Notification) {
+        desktopFrame = NSScreen.screens.reduce(CGRect.null) { $0.union($1.frame) }
+    }
     private var lastSample = ProcessInfo.processInfo.systemUptime
     private var scrollCount = CGEventSource.counterForEventType(.combinedSessionState,eventType:.scrollWheel)
     private var modifiers: Set<UInt16> = []
@@ -547,6 +624,29 @@ private final class DesktopCat: NSObject, NSApplicationDelegate {
 
     #if VERIFY
     private func verify() {
+        let probe = CatView(frame:cat.frame)
+        let desktop = CGRect(x:-1920,y:-400,width:4480,height:1840)
+        var sampleTime = 0.0
+        func sample(_ x: Double, _ y: Double) {
+            let pointer = CGPoint(x:desktop.minX+x*desktop.width,y:desktop.minY+y*desktop.height)
+            sampleTime += 1/30
+            probe.animate(at:sampleTime,toward:.zero,moved:true,clicked:false,screenPosition:screenFraction(pointer,in:desktop))
+        }
+        for _ in 0..<24 { sample(0.5,0.5) }
+        for row in [0.0,1,0.5] {
+            for column in [0.0,0.01,0.25,0.5,0.75,0.99,1,0.99,0.5] {
+                sample(column,row)
+                precondition(abs(probe.mouseOffset.x-(-0.115+0.156*column)) < 1e-8)
+                precondition(abs(probe.mouseOffset.y-(-0.34+0.68*row)) < 1e-8)
+            }
+        }
+        let released = probe.mouseOffset
+        for _ in 0..<48 {
+            sampleTime += 1/30
+            probe.animate(at:sampleTime,toward:.zero,moved:false,clicked:false,screenPosition:CGPoint(x:0.5,y:0.5))
+        }
+        precondition(probe.mouseOffset == released && probe.pointerActivity < 0.01)
+        print("Verified absolute desktop mapping at corners, intermediate positions and on reversal.")
         testTyping()
         guard let key = CGEvent(keyboardEventSource: nil, virtualKey: 3, keyDown: true),
               let event = NSEvent(cgEvent: key), let typingWindow else { exit(1) }
@@ -588,6 +688,13 @@ private final class DesktopCat: NSObject, NSApplicationDelegate {
         add(tap == nil ? "键盘联动待启用…" : "键盘联动已启用", #selector(enableKeyboard)).isEnabled = tap == nil
         add("打开打字测试窗…", #selector(testTyping))
         add("演示敲键效果", #selector(demo))
+        let actions = NSMenu()
+        for (kind,title) in [(CatGesture.listen,"动耳朵"),(.groom,"舔爪子"),(.scratch,"抓屏幕")] {
+            let item = actions.addItem(withTitle:title,action:#selector(playGesture(_:)),keyEquivalent:"")
+            item.target = self
+            item.tag = kind.rawValue
+        }
+        menu.addItem(withTitle:"逗逗黑猫",action:nil,keyEquivalent:"").submenu = actions
         menu.addItem(.separator())
         add(panel.ignoresMouseEvents ? "关闭鼠标穿透" : "开启鼠标穿透", #selector(toggleClickThrough))
         add(panel.isVisible ? "隐藏桌宠" : "显示桌宠", #selector(toggleVisibility))
@@ -604,6 +711,12 @@ private final class DesktopCat: NSObject, NSApplicationDelegate {
     }
 
     @objc private func quit() { NSApp.terminate(nil) }
+    @objc private func playGesture(_ sender: NSMenuItem) {
+        guard let kind = CatGesture(rawValue:sender.tag) else { return }
+        panel.orderFrontRegardless()
+        demoFrame = nil
+        cat.behavior.start(kind,time:ProcessInfo.processInfo.systemUptime,side:kind == .groom ? -1 : 1,demo:true)
+    }
     @objc private func chooseDesign(_ sender: NSMenuItem) {
         cat.fixedDesign = BlackCatDesign(rawValue:sender.tag)
         UserDefaults.standard.set(sender.tag,forKey:"BlackCatFixedDesign")
@@ -744,10 +857,15 @@ private final class DesktopCat: NSObject, NSApplicationDelegate {
             nextPermissionCheck = time + 2
             refreshPermission()
         }
-        guard panel.isVisible else { return }
         let pointer = NSEvent.mouseLocation
+        guard panel.isVisible else {
+            lastPointer = pointer
+            lastSample = time
+            return
+        }
         if let frame = demoFrame {
             lastPointer = pointer
+            lastSample = time
             cat.animateDemo(frame: frame, at: time)
             demoFrame = frame < 155 ? frame + 1 : nil
             return
@@ -755,15 +873,18 @@ private final class DesktopCat: NSObject, NSApplicationDelegate {
         let dx = pointer.x - panel.frame.midX
         let dy = panel.frame.minY + panel.frame.height * 0.69 - pointer.y
         let distance = max(95, hypot(dx, dy))
-        let travel = hypot(pointer.x - lastPointer.x, pointer.y - lastPointer.y)
+        let delta = CGPoint(x:pointer.x-lastPointer.x,y:pointer.y-lastPointer.y)
+        let travel = hypot(delta.x,delta.y)
         let speed = travel/max(0.01,time-lastSample)
         lastSample = time
         let count = CGEventSource.counterForEventType(.combinedSessionState,eventType:.scrollWheel)
         let scrolling = count != scrollCount
         scrollCount = count
         lastPointer = pointer
+        let local = cat.convert(panel.convertPoint(fromScreen:pointer),from:nil)
         cat.animate(at: time, toward: CGPoint(x: dx / distance * 8, y: dy / distance * 8),
-                    moved: travel > 0.4, clicked: NSEvent.pressedMouseButtons != 0, speed:speed,scroll:scrolling)
+                    moved: travel > 0, clicked: NSEvent.pressedMouseButtons != 0, speed:speed,scroll:scrolling,
+                    pointer:cat.artworkPoint(local),screenPosition:screenFraction(pointer,in:desktopFrame))
     }
 }
 
@@ -776,15 +897,30 @@ if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--render-previ
         cat.cacheDisplay(in: cat.bounds, to: bitmap)
         try bitmap.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: CommandLine.arguments[2]))
     }
-} else if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--render-motion" {
-    let cat = CatView(frame: NSRect(x: 0, y: 0, width: 250, height: 244))
+} else if CommandLine.arguments.count == 3, ["--render-motion","--render-gestures","--render-touch"].contains(CommandLine.arguments[1]) {
+    let gestures = CommandLine.arguments[1] == "--render-gestures"
+    let touch = CommandLine.arguments[1] == "--render-touch"
+    let cat = CatView(frame: gestures || touch ? NSRect(x:0,y:0,width:420,height:360) : NSRect(x: 0, y: 0, width: 250, height: 244))
+    if gestures { cat.fixedDesign = .original }
+    if touch { cat.fixedDesign = nil }
+    let frames = gestures || touch ? 204 : 156
     cat.previewBackground = true
     let url = URL(fileURLWithPath: CommandLine.arguments[2])
-    guard let gif = CGImageDestinationCreateWithURL(url as CFURL, UTType.gif.identifier as CFString, 78, nil),
+    guard let gif = CGImageDestinationCreateWithURL(url as CFURL, UTType.gif.identifier as CFString, frames/2, nil),
           let bitmap = cat.bitmapImageRepForCachingDisplay(in: cat.bounds) else { exit(1) }
     CGImageDestinationSetProperties(gif, [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: 0]] as CFDictionary)
-    for frame in 0..<156 {
-        cat.animateDemo(frame: frame, at: 1 + Double(frame) / 30)
+    for frame in 0..<frames {
+        let time = 1 + Double(frame) / 30
+        if touch {
+            cat.animateTouchDemo(frame:frame,time:time)
+        } else if gestures {
+            if frame == 10 { cat.behavior.start(.listen,time:time,side:-1,demo:true) }
+            if frame == 49 { cat.behavior.start(.groom,time:time,side:-1,demo:true) }
+            if frame == 133 { cat.behavior.start(.scratch,time:time,side:1,demo:true) }
+            cat.animate(at:time,toward:.zero,moved:false,clicked:false)
+        } else {
+            cat.animateDemo(frame: frame, at: time)
+        }
         if frame.isMultiple(of: 2) {
             cat.cacheDisplay(in: cat.bounds, to: bitmap)
             guard let image = bitmap.cgImage else { exit(1) }
