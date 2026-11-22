@@ -39,16 +39,16 @@ export class DesktopCat {
     this.pointerActivity = 0;
     this.typingActivity = 0;
     this.mouseOffset = point(0, 0);
-    this.desiredMouseOffset = point(0, 0);
     this.mouseUntil = 0;
     this.pointer = null;
+    this.clientX = window.innerWidth / 2;
+    this.clientY = window.innerHeight / 2;
+    this.hasPointer = false;
     this.headCenter = point(146, 84);
     this.headZone = { x: 146, y: 84, radius: 30 };
-    this.lastPointer = null;
     this.lastSample = performance.now() / 1000;
     this.startTime = performance.now() / 1000;
     this.onGesture = options.onGesture || (() => {});
-    this.pointerInside = false;
     this.scratchMarks = [];
     this.frame = () => this.tick();
     this.delta = point(0, 0);
@@ -59,6 +59,8 @@ export class DesktopCat {
     this.screenPosition = null;
     this.headTouch = null;
     this.pressed = false;
+    this.buttons = 0;
+    this.overCanvas = false;
     this.previousPointer = null;
     this.lastGestureKind = null;
     this.typed = "";
@@ -69,12 +71,11 @@ export class DesktopCat {
   }
 
   bind() {
-    this.canvas.addEventListener("pointermove", (event) => this.handlePointerMove(event));
-    this.canvas.addEventListener("pointerdown", (event) => this.handlePointerMove(event));
-    this.canvas.addEventListener("pointerleave", () => {
-      this.pointerInside = false;
-      this.pointer = null;
-    });
+    // 指针在整个页面都要感应：猫是桌宠，指针在哪它都该看着。
+    window.addEventListener("pointermove", (event) => this.handlePointerMove(event), { passive: true });
+    window.addEventListener("pointerdown", (event) => this.handlePointerMove(event), { passive: true });
+    window.addEventListener("pointerup", () => { this.buttons = 0; });
+    window.addEventListener("pointercancel", () => { this.buttons = 0; });
     window.addEventListener("keydown", (event) => {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       const label = KEY_LABELS[event.code];
@@ -93,6 +94,14 @@ export class DesktopCat {
     const scale = Math.min(rect.width / ART_WIDTH, rect.height / ART_HEIGHT);
     const offsetX = (rect.width - ART_WIDTH * scale) / 2;
     const offsetY = (rect.height - ART_HEIGHT * scale) / 2;
+    // 指针在画布外时，坐标会落在美术范围之外。用一个标记区分两种情况：
+    // 在画布内才算摸头，视线则始终按方向计算，两种情况都会跟着指针。
+    const inside =
+      event.clientX >= rect.left &&
+      event.clientX <= rect.right &&
+      event.clientY >= rect.top &&
+      event.clientY <= rect.bottom;
+    this.overCanvas = inside;
     return point(
       (event.clientX - rect.left - offsetX) / scale,
       (event.clientY - rect.top - offsetY) / scale
@@ -102,18 +111,27 @@ export class DesktopCat {
   handlePointerMove(event) {
     const art = this.artworkPoint(event);
     this.pointer = art;
-    this.pointerInside = true;
-    const rect = this.canvas.getBoundingClientRect();
+    this.hasPointer = true;
+    this.clientX = event.clientX;
+    this.clientY = event.clientY;
+    this.buttons = event.buttons;
+    // 和 Swift 版映射整个桌面一样，这里映射整个视口，
+    // 猫的小鼠标才会跟着指针在整页范围内走，而不是只在画布里。
     this.screenPosition = {
-      x: clamp((event.clientX - rect.left) / rect.width, 0, 1),
-      y: clamp((event.clientY - rect.top) / rect.height, 0, 1)
+      x: clamp(event.clientX / Math.max(1, window.innerWidth), 0, 1),
+      y: clamp(event.clientY / Math.max(1, window.innerHeight), 0, 1)
     };
-    // 头部区域固定在耳朵之间，避免姿态漂移导致判定忽隐忽现。
+    // 只有指针真的落在猫身上时才算摸头。
+    this.headTouch = this.overCanvas ? this.headHit(art) : null;
+  }
+
+  // 头部区域固定在耳朵之间，避免姿态漂移导致判定忽隐忽现。
+  headHit(art) {
     const headX = 146;
     const headY = 80;
     const across = (art.x - headX) / 32;
     const vertical = (art.y - headY + 6) / 28;
-    this.headTouch = Math.hypot(across, vertical) <= 1 ? across : null;
+    return Math.hypot(across, vertical) <= 1 ? across : null;
   }
 
   hit(label) {
@@ -129,21 +147,18 @@ export class DesktopCat {
 
   update(time) {
     const now = time;
+    this.pressed = this.buttons > 0;
     const lastKeyAge = this.caps.length ? now - this.caps[this.caps.length - 1].time : 1;
     const typingTarget = lastKeyAge < 0.36 ? 1 : 0;
-    const speed = this.lastPointer ? this.speed : 0;
+    const speed = this.hasPointer ? this.speed : 0;
     // 摸头判定：指针在头部附近，且这次移动的幅度不大，属于“轻轻摸”。
-    // 阈值按美术单位计，网页上一次轻微摆动约 18 单位。
-    const gentle = this.travel < 26;
+    // 和 Swift 版一致：速度阈值 440（Swift 是 30fps，即每帧约 14.7 像素）。
+    const gentle = this.speed < 440;
     const touch = this.headTouch !== null && this.headTouch !== undefined && gentle && typingTarget === 0 ? this.headTouch : null;
     this.lastTouch = touch;
     if (touch === null && (speed > 0 || this.pressed)) this.mouseUntil = now + 0.55;
     const target = touch === null ? (now < this.mouseUntil ? 1 : 0) : this.pointerActivity > 0.5 ? 1 : 0;
     this.pointerActivity += (target - this.pointerActivity) * (target > 0 ? 0.27 : 0.17);
-    if (touch === null && speed > 0) {
-      this.desiredMouseOffset.x = clamp(this.desiredMouseOffset.x + this.delta.x * 0.00077, -0.115, 0.041);
-      this.desiredMouseOffset.y = clamp(this.desiredMouseOffset.y + this.delta.y * 0.0027, -0.34, 0.34);
-    }
     if (target > 0 && touch === null && this.screenPosition) {
       const desired = point(-0.115 + 0.156 * this.screenPosition.x, -0.34 + 0.68 * this.screenPosition.y);
       const coupling = clamp((this.pointerActivity - 0.45) / 0.45, 0, 1);
@@ -156,15 +171,20 @@ export class DesktopCat {
       down: this.pressed,
       typing: typingTarget > 0,
       fixed: this.fixedDesign,
+      // 只有指针在猫附近时才参与逗猫判定，指针在页面别处不会误触发。
       pointer: this.pointer,
       headTouch: touch,
       gentle
     });
     this.behavior.typingActivity = this.typingActivity;
     this.typingActivity += (typingTarget - this.typingActivity) * 0.28;
-    const look = this.pointer
-      ? point(clamp((this.pointer.x - 140) / 45, -1, 1) * 8, clamp((this.pointer.y - 92) / 45, -1, 1) * 8)
-      : point(0, 0);
+    // 视线按「指针相对猫的方向」算，和 Swift 版一致：指针在页面任何位置，
+    // 猫都会朝那边看，而不是只有指针落在画布里才有反应。
+    const rect = this.canvas.getBoundingClientRect();
+    const dx = this.clientX - (rect.left + rect.width / 2);
+    const dy = rect.top + rect.height * 0.31 - this.clientY;
+    const distance = Math.max(95, Math.hypot(dx, dy));
+    const look = point((dx / distance) * 8, (dy / distance) * 8);
     this.gaze = point(this.gaze.x * 0.75 + look.x * 0.25, this.gaze.y * 0.75 + look.y * 0.25);
     this.caps = this.caps.filter((cap) => now - cap.time < 0.6);
     const gesture = this.behavior.gesture;
@@ -301,22 +321,21 @@ export class DesktopCat {
   tick() {
     const time = performance.now() / 1000;
     const elapsed = Math.max(0.001, time - this.lastSample);
-    const pointer = this.pointer;
-    if (pointer && this.lastPointer) {
-      const dx = pointer.x - this.lastPointer.x;
-      const dy = pointer.y - this.lastPointer.y;
+    // 位移和速度用屏幕像素算，指针在页面任何位置都成立。
+    if (this.hasPointer && this.lastClient) {
+      const dx = this.clientX - this.lastClient.x;
+      const dy = this.clientY - this.lastClient.y;
       this.delta = point(dx, dy);
-      const travel = Math.hypot(dx, dy);
-      this.travel = travel;
-      // 浏览器只在指针移动时派发事件，所以单帧位移就是这次移动的真实距离。
-      this.speed = travel / elapsed;
+      this.travel = Math.hypot(dx, dy);
+      // Swift 版用固定 30fps 定时器算速度，浏览器是 rAF（约 60fps）。
+      // 这里统一按 1/30 秒算，阈值才和 Swift 版一致。
+      this.speed = this.travel / (1 / 30);
     } else {
       this.delta = point(0, 0);
       this.travel = 0;
-      this.recentTravel = 0;
       this.speed = 0;
     }
-    this.lastPointer = pointer;
+    this.lastClient = { x: this.clientX, y: this.clientY };
     this.lastSample = time;
     this.update(time);
     this.draw(time);
