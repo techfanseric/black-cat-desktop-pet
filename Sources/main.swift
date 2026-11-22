@@ -572,7 +572,7 @@ private final class TypingWindow: NSWindow {
 private final class DesktopCat: NSObject, NSApplicationDelegate {
     private let logger = Logger(subsystem: "local.milkcat.desktop-pet", category: "Keyboard")
     private let cat = CatView(frame: NSRect(x: 0, y: 0, width: 270, height: 263))
-    private let status = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+    private var status: NSStatusItem?
     private let menu = NSMenu()
     private var panel: CatPanel!
     private var tap: CFMachPort?
@@ -605,10 +605,8 @@ private final class DesktopCat: NSObject, NSApplicationDelegate {
         panel.contentView = cat
         resetPosition()
         panel.orderFrontRegardless()
-        status.button?.title = "🐾"
-        status.button?.toolTip = "黑猫桌宠"
         menu.autoenablesItems = false
-        status.menu = menu
+        refreshStatusItem()
         cat.showMenu = { [weak self] event in
             guard let self else { return }
             NSMenu.popUpContextMenu(self.menu, with: event, for: self.cat)
@@ -624,6 +622,12 @@ private final class DesktopCat: NSObject, NSApplicationDelegate {
 
     #if VERIFY
     private func verify() {
+        precondition(status != nil)
+        toggleStatusItem()
+        precondition(status == nil && !showStatusItem)
+        toggleStatusItem()
+        precondition(status != nil && showStatusItem)
+        print("Verified menu bar icon toggle and persistence.")
         let probe = CatView(frame:cat.frame)
         let desktop = CGRect(x:-1920,y:-400,width:4480,height:1840)
         var sampleTime = 0.0
@@ -695,6 +699,8 @@ private final class DesktopCat: NSObject, NSApplicationDelegate {
             item.tag = kind.rawValue
         }
         menu.addItem(withTitle:"逗逗黑猫",action:nil,keyEquivalent:"").submenu = actions
+        let iconItem = add(showStatusItem ? "隐藏菜单栏图标" : "显示菜单栏图标", #selector(toggleStatusItem))
+        iconItem.state = showStatusItem ? .on : .off
         menu.addItem(.separator())
         add(panel.ignoresMouseEvents ? "关闭鼠标穿透" : "开启鼠标穿透", #selector(toggleClickThrough))
         add(panel.isVisible ? "隐藏桌宠" : "显示桌宠", #selector(toggleVisibility))
@@ -711,6 +717,31 @@ private final class DesktopCat: NSObject, NSApplicationDelegate {
     }
 
     @objc private func quit() { NSApp.terminate(nil) }
+    private var showStatusItem: Bool {
+        UserDefaults.standard.object(forKey:"BlackCatMenuBarIcon") as? Bool ?? true
+    }
+    private func refreshStatusItem() {
+        if showStatusItem {
+            if status == nil {
+                let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+                item.button?.title = "🐾"
+                item.button?.toolTip = "黑猫桌宠"
+                item.menu = menu
+                status = item
+            }
+        } else if let item = status {
+            NSStatusBar.system.removeStatusItem(item)
+            status = nil
+        }
+    }
+    @objc private func toggleStatusItem() {
+        UserDefaults.standard.set(!showStatusItem, forKey:"BlackCatMenuBarIcon")
+        refreshStatusItem()
+        if !showStatusItem, panel.ignoresMouseEvents {
+            panel.ignoresMouseEvents = false
+        }
+        buildMenu()
+    }
     @objc private func playGesture(_ sender: NSMenuItem) {
         guard let kind = CatGesture(rawValue:sender.tag) else { return }
         panel.orderFrontRegardless()
