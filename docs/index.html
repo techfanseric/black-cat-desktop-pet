@@ -3,66 +3,212 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f8f8ef">
-  <meta name="description" content="黑猫桌宠会跟你一起敲键盘、握鼠标，也喜欢被摸摸头。看实际演示，下载 macOS 版。">
-  <title>黑猫桌宠 · 在 Mac 上养一只黑猫</title>
+  <meta name="theme-color" content="#12140f">
+  <meta name="description" content="黑猫桌宠是一只待在 Mac 屏幕右下角的小猫。它会跟着你敲键盘、握住你的鼠标，被摸头时会眯起眼睛。免费开源。">
+  <title>黑猫桌宠 · 待在屏幕角落的一只黑猫</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header><a class="brand" href="./"><i class="eyes" aria-hidden="true"></i>黑猫桌宠</a><a lang="en" href="https://github.com/techfanseric/black-cat-desktop-pet">GitHub</a></header>
-  <main>
-    <section class="hero" aria-labelledby="intro">
+  <a class="skip" href="#play">跳到互动演示</a>
+  <header>
+    <a class="brand" href="#top"><i class="eyes" aria-hidden="true"></i>黑猫桌宠</a>
+    <nav>
+      <a href="#what">它会做什么</a>
+      <a href="#play">在线试玩</a>
+      <a href="#download">下载</a>
+      <a lang="en" href="https://github.com/techfanseric/black-cat-desktop-pet">GitHub</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero">
       <div class="intro">
-        <h1 id="intro">键盘旁，<br>坐了只黑猫<span>。</span></h1>
-        <p>你敲键，它就跟着敲。你移动鼠标，它也伸爪握住自己的那只。工作间隙，把指针放在它头上，等它眯起眼睛。</p>
-        <a class="download" href="https://github.com/techfanseric/black-cat-desktop-pet/releases/download/v2.1.0/Black-Cat-Desktop-Pet-2.1.0-macOS.zip">下载 Mac 版</a>
-        <small>v2.1.0 · macOS 13+ · Apple Silicon / Intel</small>
-      </div>
-      <figure>
-        <div class="stage">
-          <video id="film" controls muted loop playsinline preload="auto" width="840" height="720" aria-label="桌宠动作演示" src="media/mouse-and-petting.mp4"></video>
+        <p class="eyebrow">macOS 桌面宠物 · v2.2.0 · 免费开源</p>
+        <h1>右下角有只猫，<br><span>陪你一起加班。</span></h1>
+        <p class="lead">它是一只占屏幕不到 1% 的小黑猫，待在你的桌面角落。你打字它跟着敲，你动鼠标它跟着伸手，你想摸它，就把指针放到它脑袋上。</p>
+        <div class="cta">
+          <a class="button primary" href="#download">下载 Mac 版</a>
+          <a class="button" href="#play">先在线玩一下</a>
         </div>
-        <figcaption>
-          <div id="clips" hidden role="group" aria-label="选择演示">
-            <button type="button" data-film="mouse-and-petting" aria-pressed="true">摸摸头</button>
-            <button type="button" data-film="typing" aria-pressed="false">敲键盘</button>
-            <button type="button" data-film="gestures" aria-pressed="false">逗逗猫</button>
+        <p class="fine">macOS 13+ · Apple Silicon / Intel · 无广告 · 无账号</p>
+      </div>
+
+      <!-- 用一个缩小的桌面缩略图，交代它到底待在哪儿 -->
+      <div class="hero-desk">
+        <div class="desk-screen">
+          <div class="desk-wallpaper"></div>
+          <div class="desk-window">
+            <span class="dock-bar"></span>
+            <span class="dock-line"></span>
+            <span class="dock-line short"></span>
           </div>
-          <p id="caption" aria-live="polite">指针停在两耳之间，它会眯眼，朝你的手轻轻蹭过来。</p>
-        </figcaption>
-      </figure>
+          <div class="desk-pet" id="hero-pet">
+            <canvas id="hero-canvas" width="300" height="260" aria-label="待在桌面角落的黑猫，会跟着你敲键盘"></canvas>
+            <div class="hero-typepad" id="hero-typepad">
+              <span class="hero-typepad-text"></span>
+              <span class="typepad-caret"></span>
+            </div>
+          </div>
+        </div>
+        <p class="hero-caption">它就坐在这里 —— 右下角，不挡任何东西。挪个位置？按住它拖就行。</p>
+      </div>
     </section>
-    <section class="install" aria-labelledby="install">
-      <h2 id="install">把它带到桌面</h2>
+
+    <section class="what-section" id="what">
+      <div class="section-head">
+        <p class="eyebrow">它会做什么</p>
+        <h2>你照常用电脑，<br>它在旁边自己玩。</h2>
+        <p class="section-lead">桌宠不接管你的任何操作。它只听、只看，然后给出反应。</p>
+      </div>
+      <div class="what-grid">
+        <article>
+          <h3>跟着你敲键盘</h3>
+          <p>开启输入监控后，你在任何应用里打字，它都会在键盘上跟着敲同一个键。空格、回车、Shift 都认得。</p>
+        </article>
+        <article>
+          <h3>握着你的鼠标</h3>
+          <p>你移动指针，它会探身握住自己的小鼠标，肩膀跟着转移重心。你停下，它就松手。</p>
+        </article>
+        <article>
+          <h3>被摸就眯眼</h3>
+          <p>把指针放到它两耳之间，它会闭眼侧脸蹭你，尾巴慢慢摆。这是它最喜欢的事。</p>
+        </article>
+        <article>
+          <h3>犯困和舔爪子</h3>
+          <p>你忙你的，它自己找乐子。闲置久了会眼皮耷下来，再久一点会抬起爪子舔两下。</p>
+        </article>
+        <article>
+          <h3>四种姿态</h3>
+          <p>端坐、探身、警觉、困困。平时自动切换，也可以从菜单固定成你最喜欢的那一款。</p>
+        </article>
+        <article>
+          <h3>不打扰你</h3>
+          <p>只监听不拦截按键。可以隐藏菜单栏图标，也可以开启鼠标穿透，点击直接落到后面的窗口。</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="play-section" id="play">
+      <div class="section-head">
+        <p class="eyebrow">在线试玩</p>
+        <h2>不用下载，<br>先在这儿试试。</h2>
+        <p class="section-lead">下面这只用的是和你装在 Mac 上完全相同的绘制代码。敲键盘、移动指针、摸摸它的头，反应都是实时算出来的。</p>
+      </div>
+
+      <div class="playground">
+        <div class="screen">
+          <div class="screen-bar">
+            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            <span class="screen-title">黑猫桌宠 · 在线试玩</span>
+            <span class="live" id="live-indicator">运行中</span>
+          </div>
+          <div class="screen-body">
+            <canvas id="pet-overlay" class="overlay-canvas" aria-hidden="true"></canvas>
+            <canvas id="pet-canvas" width="840" height="600" tabindex="0" aria-label="黑猫互动画布，点击后可以直接敲键盘"></canvas>
+            <div class="hint" id="hint">点击画面，然后随便敲键盘</div>
+            <div class="typepad" id="typepad" aria-live="polite">
+              <span class="typepad-label">它看到的你</span>
+              <span class="typepad-text" id="typepad-text"></span>
+              <span class="typepad-caret"></span>
+            </div>
+            <div class="pet-bubble" id="pet-bubble" aria-hidden="true"></div>
+          </div>
+          <div class="screen-foot">
+            <div class="status">
+              <span class="status-key" id="status-key">等待输入</span>
+              <span class="status-desc" id="status-desc">猫会盯住指针，也会追着你的手指敲键盘</span>
+            </div>
+            <div class="controls">
+              <button type="button" data-demo="listen" class="chip ghost">逗它一下</button>
+              <button type="button" data-demo="groom" class="chip ghost">看它舔爪</button>
+              <button type="button" data-demo="scratch" class="chip ghost">看它抓屏</button>
+              <span class="controls-sep" aria-hidden="true"></span>
+              <button type="button" data-pose="auto" class="chip is-on">自动</button>
+              <button type="button" data-pose="0" class="chip">端坐</button>
+              <button type="button" data-pose="1" class="chip">探身</button>
+              <button type="button" data-pose="2" class="chip">警觉</button>
+              <button type="button" data-pose="3" class="chip">困困</button>
+            </div>
+          </div>
+        </div>
+
+        <aside class="tips">
+          <h3>试试这五件事</h3>
+          <p class="tips-sub">每做成一件事，它就解锁一个反应。</p>
+          <ul class="quests" id="quests">
+            <li data-quest="type"><b>敲键盘</b><span>猫爪落到对应的键帽上，键帽亮起，键名浮出来。</span></li>
+            <li data-quest="mouse"><b>移动指针</b><span>它会探身握住自己的小鼠标，跟着你的指针走。</span></li>
+            <li data-quest="pet"><b>摸它的头</b><span>把指针停在两耳之间轻轻晃，它会眯眼、侧脸蹭你。</span></li>
+            <li data-quest="tease"><b>逗它</b><span>在它旁边来回晃，它会伸爪划过屏幕，留下三道抓痕。</span></li>
+            <li data-quest="idle"><b>放着不管</b><span>它会犯困；再过一会儿，会抬起爪子舔两下。</span></li>
+          </ul>
+          <div class="quest-progress">
+            <div class="quest-bar"><span id="quest-bar-fill"></span></div>
+            <span class="quest-count" id="quest-count">0 / 5</span>
+          </div>
+          <p class="quest-clear" id="quest-clear">全部达成 —— 它现在完全信任你了。</p>
+          <p class="tips-note">网页版只读取键盘和指针事件用于动画，不会发送任何内容，也不需要任何权限。</p>
+        </aside>
+      </div>
+    </section>
+
+    <section class="feature-band">
+      <article>
+        <h3>纯代码绘制</h3>
+        <p>没有一张图片素材。猫、键盘和鼠标都由 Swift 和 Canvas 一笔画出来。</p>
+      </article>
+      <article>
+        <h3>只占一个角落</h3>
+        <p>桌宠浮窗默认贴在右下角，可以拖到任何地方，也可以让点击穿透到后面的窗口。</p>
+      </article>
+      <article>
+        <h3>键盘联动可关</h3>
+        <p>跟随打字需要你手动开启输入监控，猫爪只看不拦，不会影响你输入。</p>
+      </article>
+      <article>
+        <h3>菜单栏图标可隐藏</h3>
+        <p>不想要那个 🐾 就关掉它。想找回，右键点击猫身即可唤出同一个菜单。</p>
+      </article>
+    </section>
+
+    <section class="clips-section">
+      <div class="section-head">
+        <p class="eyebrow">动作演示</p>
+        <h2>它平时的样子</h2>
+      </div>
+      <div class="clips">
+        <figure>
+          <video src="media/mouse-and-petting.mp4" autoplay muted loop playsinline width="840" height="720"></video>
+          <figcaption>握住鼠标，然后被摸得眯起眼睛</figcaption>
+        </figure>
+        <figure>
+          <video src="media/gestures.mp4" autoplay muted loop playsinline width="840" height="720"></video>
+          <figcaption>转耳、舔爪，再挥爪留下抓痕</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="download" id="download">
       <div>
-        <p>解压下载包，把「黑猫桌宠」拖进「应用程序」并打开。它会坐在屏幕右下角，按住身体就能挪窝。</p>
-        <p>从菜单栏 🐾 打开「打字测试窗」，按一下 F 和 J。想让猫在其他应用里也跟着敲，可以从同一菜单启用「输入监控」。</p>
-        <p class="detail">此版本使用本地签名，未经 Apple 公证，首次打开时系统可能拦截。</p>
-        <p>不想让菜单栏留一个 🐾？在菜单里选「隐藏菜单栏图标」，设置会被记住；右键猫身随时能叫回菜单。</p>
-        <a href="https://github.com/techfanseric/black-cat-desktop-pet/releases/tag/v2.1.0">发行说明</a> ·
-        <a href="https://github.com/techfanseric/black-cat-desktop-pet#readme">完整使用说明</a>
+        <p class="eyebrow">开始使用</p>
+        <h2>把它放到你的桌面</h2>
+        <p class="section-lead">解压后把「黑猫桌宠」拖进「应用程序」打开。它会坐在屏幕右下角，按住身体就能挪窝。</p>
+        <p class="fine">想要它在别的应用里也跟着敲键，从菜单栏 🐾 打开「键盘联动」，允许「输入监控」即可。菜单栏图标可以隐藏，右键猫身随时能叫回菜单。</p>
+        <p class="fine">本版本使用本地签名，未经 Apple 公证，首次打开时系统可能拦截。</p>
+        <div class="cta">
+          <a class="button primary" href="https://github.com/techfanseric/black-cat-desktop-pet/releases/download/v2.2.0/Black-Cat-Desktop-Pet-2.2.0-macOS.zip">下载 Mac 版</a>
+          <a class="button" href="https://github.com/techfanseric/black-cat-desktop-pet/releases/tag/v2.2.0">发行说明</a>
+          <a class="button" href="https://github.com/techfanseric/black-cat-desktop-pet#readme">完整使用说明</a>
+        </div>
       </div>
     </section>
   </main>
-  <script>
-    const clips = document.querySelector("#clips");
-    const film = document.querySelector("#film");
-    const captions = {
-      "mouse-and-petting": document.querySelector("#caption").textContent,
-      typing: "交替按下 F 和 J，看爪尖落在哪颗键帽上。",
-      gestures: "侧面靠近时转耳，安静时舔两下爪子；在脸旁来回逗，它会伸爪留下三道抓痕。"
-    };
-    clips.hidden = false;
-    if (!matchMedia("(prefers-reduced-motion: reduce)").matches) film.play().catch(() => {});
-    clips.addEventListener("click", event => {
-      const choice = event.target.closest("button[data-film]");
-      if (!choice) return;
-      const name = choice.dataset.film;
-      for (const button of clips.querySelectorAll("button")) button.setAttribute("aria-pressed", String(button === choice));
-      film.src = `media/${name}.mp4`;
-      document.querySelector("#caption").textContent = captions[name];
-      film.play().catch(() => {});
-    });
-  </script>
+
+  <footer>
+    <p>黑猫桌宠 · 用 Swift 和 Canvas 画的一只猫</p>
+    <p><a href="https://github.com/techfanseric/black-cat-desktop-pet">源码</a> · <a href="https://github.com/techfanseric/black-cat-desktop-pet/releases">下载</a></p>
+  </footer>
+
+  <script type="module" src="boot.js"></script>
 </body>
 </html>

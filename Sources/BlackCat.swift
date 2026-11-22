@@ -239,7 +239,7 @@ struct BlackCatArtwork {
             let wide = mix([8.9,8.9,10.4,8.9]), tall = mix([7.9,7.9,10.6,4.2])
             let eyeY = side*mix([0,0,1.3,0])-1
             let pupilWidth = mix([3.5,3.5,3.2,3.2])
-            let pupilHeight = tall * 0.66
+            let pupilHeight = tall * 0.58
             let factor = (1-pose.enjoying)*(1-max(0,min(1,max(pose.blink,0.43*grooming+0.46*lick))))
             ctx.saveGState()
             ctx.translateBy(x:side*13.0,y:eyeY)
@@ -250,7 +250,11 @@ struct BlackCatArtwork {
             ctx.addEllipse(in:eyeRect); ctx.clip()
             ctx.setFillColor(lime); ctx.fill(eyeRect)
             if factor > 0.13 {
-                ink.oval(fur, gaze.x*(wide-pupilWidth-0.8)-pupilWidth, gaze.y*tall*0.45-pupilHeight, pupilWidth*2, pupilHeight*2)
+                // 瞳孔必须留在眼睛里，否则向上看的时候会被切成月牙。
+                let slackX = max(0,wide-pupilWidth), slackY = max(0,tall-pupilHeight)
+                ink.oval(fur, min(slackX,max(-slackX,gaze.x*slackX))-pupilWidth,
+                         min(slackY,max(-slackY,gaze.y*slackY))-pupilHeight,
+                         pupilWidth*2, pupilHeight*2)
             }
             ctx.restoreGState()
             if pose.enjoying > 0.001 {
