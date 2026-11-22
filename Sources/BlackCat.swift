@@ -239,20 +239,22 @@ struct BlackCatArtwork {
             let wide = mix([8.9,8.9,10.4,8.9]), tall = mix([7.9,7.9,10.6,4.2])
             let eyeY = side*mix([0,0,1.3,0])-1
             let pupilWidth = mix([3.5,3.5,3.2,3.2])
-            let pupilHeight = tall * 0.5
             let factor = (1-pose.enjoying)*(1-max(0,min(1,max(pose.blink,0.43*grooming+0.46*lick))))
+            // 眼睛的实际高度会随眨眼变矮，瞳孔必须跟着缩，否则会被裁成月牙。
+            let eyeHeight = max(0.6,tall*factor)
+            let pupilHeight = eyeHeight * 0.5
             ctx.saveGState()
             ctx.translateBy(x:side*13.0,y:eyeY)
             ctx.rotate(by:side * mix([0,0,0,-0.16]))
             ctx.saveGState()
             ctx.setAlpha(1-pose.enjoying)
-            let eyeRect = CGRect(x:-wide,y:-max(0.6,tall*factor),width:wide*2,height:max(1.2,tall*factor*2))
+            let eyeRect = CGRect(x:-wide,y:-eyeHeight,width:wide*2,height:max(1.2,eyeHeight*2))
             ctx.addEllipse(in:eyeRect); ctx.clip()
             ctx.setFillColor(lime); ctx.fill(eyeRect)
             if factor > 0.13 {
                 let offsetX = gaze.x * wide * 0.55
-                let offsetY = gaze.y * tall * 0.5
-                let fit = BlackCatArtwork.pupilFit(wide,tall,pupilWidth,pupilHeight,offsetX,offsetY)
+                let offsetY = gaze.y * eyeHeight * 0.5
+                let fit = BlackCatArtwork.pupilFit(wide,eyeHeight,pupilWidth,pupilHeight,offsetX,offsetY)
                 ink.oval(fur, offsetX*fit-pupilWidth, offsetY*fit-pupilHeight, pupilWidth*2, pupilHeight*2)
             }
             ctx.restoreGState()

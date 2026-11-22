@@ -294,22 +294,24 @@ export function drawCat(ctx, design, pose) {
     const tall = mix([7.9, 7.9, 10.6, 4.2]);
     const eyeY = eyeSide * mix([0, 0, 1.3, 0]) - 1;
     const pupilWidth = mix([3.5, 3.5, 3.2, 3.2]);
-    const pupilHeight = tall * 0.5;
     const factor = (1 - pose.enjoying) * (1 - clamp(Math.max(pose.blink, 0.43 * grooming + 0.46 * lick), 0, 1));
+    // 眼睛的实际高度会随眨眼变矮，瞳孔必须跟着缩，否则会被裁成月牙。
+    const eyeHeight = Math.max(0.6, tall * factor);
+    const pupilHeight = eyeHeight * 0.5;
     ctx.save();
     ctx.translate(eyeSide * 13, eyeY);
     ctx.rotate(eyeSide * mix([0, 0, 0, -0.16]));
     ctx.save();
     ctx.globalAlpha = 1 - pose.enjoying;
     ctx.beginPath();
-    ctx.ellipse(0, 0, wide, Math.max(0.6, tall * factor), 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, wide, eyeHeight, 0, 0, Math.PI * 2);
     ctx.clip();
     ctx.fillStyle = COLORS.lime;
     ctx.fillRect(-wide, -tall, wide * 2, tall * 2);
     if (factor > 0.13) {
       const offsetX = gaze.x * wide * 0.55;
-      const offsetY = gaze.y * tall * 0.5;
-      const fit = pupilFit(wide, tall, pupilWidth, pupilHeight, offsetX, offsetY);
+      const offsetY = gaze.y * eyeHeight * 0.5;
+      const fit = pupilFit(wide, eyeHeight, pupilWidth, pupilHeight, offsetX, offsetY);
       ink.oval(
         COLORS.fur,
         offsetX * fit - pupilWidth,
