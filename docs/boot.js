@@ -11,39 +11,29 @@ const hint = document.querySelector("#hint");
 const statusKey = document.querySelector("#status-key");
 const statusDesc = document.querySelector("#status-desc");
 const liveIndicator = document.querySelector("#live-indicator");
-const typepadText = document.querySelector("#typepad-text");
-const typepad = document.querySelector("#typepad");
-const heroTypepad = document.querySelector("#hero-typepad");
-const bubble = document.querySelector("#pet-bubble");
 
 const STATUS = {
-  [GESTURES.listen]: ["耳朵动了", "指针从侧面靠近时，它会转一下耳朵", "？"],
-  [GESTURES.groom]: ["在舔爪子", "安静够久，它会抬起爪子舔两下", "咕噜…"],
-  [GESTURES.scratch]: ["被抓到了", "在它旁边来回逗，它会伸爪划过屏幕", "喂！"]
+  [GESTURES.listen]: ["耳朵动了", "指针从侧面靠近时，它会转一下耳朵"],
+  [GESTURES.groom]: ["在舔爪子", "安静够久，它会抬起爪子舔两下"],
+  [GESTURES.scratch]: ["被抓到了", "在它旁边来回逗，它会伸爪划过屏幕"]
 };
 
 function describe(cat) {
   const behavior = cat.behavior;
   if (behavior.gesture) {
     const entry = STATUS[behavior.gesture.kind];
-    if (entry) return [entry[0], entry[1], entry[2]];
+    if (entry) return entry;
   }
-  if (behavior.enjoying > 0.4) return ["被摸得很舒服", "指针停在两耳之间，它会眯眼侧脸蹭你", "呼噜"];
-  if (behavior.typingActivity > 0.35) return ["跟着你敲键盘", "键帽会亮起来，键名也会浮出来", "哒哒哒"];
-  if (cat.pointerActivity > 0.5) return ["在握鼠标", "它会跟着指针移动，屏幕四角是极限位置", "嘿嘿"];
-  return ["等待输入", "猫会盯住指针，也会追着你的手指敲键盘", "喵"];
+  if (behavior.enjoying > 0.4) return ["被摸得很舒服", "指针停在两耳之间，它会眯眼侧脸蹭你"];
+  if (behavior.typingActivity > 0.35) return ["跟着你敲键盘", "键帽会亮起来，键名也会浮出来"];
+  if (cat.pointerActivity > 0.5) return ["在握鼠标", "它会跟着指针移动，屏幕四角是极限位置"];
+  return ["等待输入", "猫会盯住指针，也会追着你的手指敲键盘"];
 }
 
 function refreshStatus(cat) {
   const entry = describe(cat);
   statusKey.textContent = entry[0];
   statusDesc.textContent = entry[1];
-  if (bubble.textContent !== entry[2]) {
-    bubble.textContent = entry[2];
-    bubble.classList.remove("is-on");
-    // 换一句话就重新弹一次，像猫在冒泡。
-    requestAnimationFrame(() => bubble.classList.add("is-on"));
-  }
 }
 
 // 任务系统：把五种互动变成可以收集的小目标。
@@ -66,9 +56,6 @@ function completeQuest(name) {
   questCount.textContent = `${questState.size} / ${QUESTS.length}`;
   if (questState.size === QUESTS.length) {
     questClear.classList.add("is-on");
-    bubble.textContent = "！";
-    bubble.classList.remove("is-on");
-    requestAnimationFrame(() => bubble.classList.add("is-on"));
   }
 }
 
@@ -87,17 +74,6 @@ const pet = new DesktopCat(petCanvas, {
   overlay: petOverlay,
   onGesture: () => {
     refreshStatus(pet);
-  },
-  onType: (text) => {
-    typepadText.textContent = text;
-    typepad.classList.add("is-on");
-    heroTypepad.querySelector("span:not(.typepad-caret)").textContent = text;
-    heroTypepad.classList.add("is-on");
-  },
-  onFrame: (cat) => {
-    if (!cat.headScreen) return;
-    bubble.style.left = `${cat.headScreen.x}px`;
-    bubble.style.top = `${cat.headScreen.y - 96}px`;
   }
 });
 attach(pet, { focusOnKey: true });
@@ -105,26 +81,8 @@ pet.start();
 window.blackCat = pet;
 
 const heroCanvas = document.querySelector("#hero-canvas");
-const hero = new DesktopCat(heroCanvas, {
-  onType: (text) => {
-    typepadText.textContent = text;
-    typepad.classList.add("is-on");
-    heroTypepad.querySelector("span:not(.typepad-caret)").textContent = text;
-    heroTypepad.classList.add("is-on");
-  }
-});
+const hero = new DesktopCat(heroCanvas);
 hero.start();
-
-// 打字停顿一会儿后，把提示条收起来。
-let typeIdle = null;
-const scheduleTypeIdle = () => {
-  clearTimeout(typeIdle);
-  typeIdle = setTimeout(() => {
-    typepad.classList.remove("is-on");
-    heroTypepad.classList.remove("is-on");
-  }, 2200);
-};
-window.addEventListener("keydown", scheduleTypeIdle);
 
 window.addEventListener("keydown", () => refreshStatus(pet));
 window.addEventListener("pointermove", () => refreshStatus(pet));

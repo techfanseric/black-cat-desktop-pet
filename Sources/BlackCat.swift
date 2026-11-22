@@ -239,7 +239,7 @@ struct BlackCatArtwork {
             let wide = mix([8.9,8.9,10.4,8.9]), tall = mix([7.9,7.9,10.6,4.2])
             let eyeY = side*mix([0,0,1.3,0])-1
             let pupilWidth = mix([3.5,3.5,3.2,3.2])
-            let pupilHeight = tall * 0.58
+            let pupilHeight = tall * 0.5
             let factor = (1-pose.enjoying)*(1-max(0,min(1,max(pose.blink,0.43*grooming+0.46*lick))))
             ctx.saveGState()
             ctx.translateBy(x:side*13.0,y:eyeY)
@@ -250,11 +250,10 @@ struct BlackCatArtwork {
             ctx.addEllipse(in:eyeRect); ctx.clip()
             ctx.setFillColor(lime); ctx.fill(eyeRect)
             if factor > 0.13 {
-                // 瞳孔必须留在眼睛里，否则向上看的时候会被切成月牙。
-                let slackX = max(0,wide-pupilWidth), slackY = max(0,tall-pupilHeight)
-                ink.oval(fur, min(slackX,max(-slackX,gaze.x*slackX))-pupilWidth,
-                         min(slackY,max(-slackY,gaze.y*slackY))-pupilHeight,
-                         pupilWidth*2, pupilHeight*2)
+                let offsetX = gaze.x * wide * 0.55
+                let offsetY = gaze.y * tall * 0.5
+                let fit = BlackCatArtwork.pupilFit(wide,tall,pupilWidth,pupilHeight,offsetX,offsetY)
+                ink.oval(fur, offsetX*fit-pupilWidth, offsetY*fit-pupilHeight, pupilWidth*2, pupilHeight*2)
             }
             ctx.restoreGState()
             if pose.enjoying > 0.001 {
@@ -303,6 +302,29 @@ struct BlackCatArtwork {
             }
         }
         return head
+    }
+
+    /// 瞳孔要完整落在眼睛椭圆里。眼睛在瞳孔上下边缘所在的那一行更窄，
+    /// 单纯的矩形夹取会让瞳孔被切掉一块变成月牙，所以按椭圆真实形状求解。
+    static func pupilFit(_ eyeWidth: CGFloat, _ eyeHeight: CGFloat,
+                         _ pupilWidth: CGFloat, _ pupilHeight: CGFloat,
+                         _ offsetX: CGFloat, _ offsetY: CGFloat) -> CGFloat {
+        func inside(_ scale: CGFloat) -> Bool {
+            for i in 0..<24 {
+                let angle = CGFloat(i) / 24 * .pi * 2
+                let x = offsetX * scale + pupilWidth * cos(angle)
+                let y = offsetY * scale + pupilHeight * sin(angle)
+                if x * x / (eyeWidth * eyeWidth) + y * y / (eyeHeight * eyeHeight) > 1 { return false }
+            }
+            return true
+        }
+        if inside(1) { return 1 }
+        var low: CGFloat = 0, high: CGFloat = 1
+        for _ in 0..<10 {
+            let mid = (low + high) / 2
+            if inside(mid) { low = mid } else { high = mid }
+        }
+        return low
     }
 
     static func keyCenter(row: Int, column: Int) -> CGPoint {

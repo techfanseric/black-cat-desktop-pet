@@ -78,6 +78,29 @@ function makeInk(ctx) {
   };
 }
 
+// 瞳孔要完整落在眼睛椭圆里。眼睛在瞳孔上下边缘所在的那一行更窄，
+// 单纯的矩形夹取会让瞳孔被切掉一块变成月牙，所以按椭圆真实形状求解。
+function pupilFit(eyeWidth, eyeHeight, pupilWidth, pupilHeight, offsetX, offsetY) {
+  const inside = (cx, cy) => {
+    for (let i = 0; i < 24; i += 1) {
+      const angle = (i / 24) * Math.PI * 2;
+      const x = cx + pupilWidth * Math.cos(angle);
+      const y = cy + pupilHeight * Math.sin(angle);
+      if ((x * x) / (eyeWidth * eyeWidth) + (y * y) / (eyeHeight * eyeHeight) > 1) return false;
+    }
+    return true;
+  };
+  if (inside(offsetX, offsetY)) return 1;
+  let low = 0;
+  let high = 1;
+  for (let i = 0; i < 10; i += 1) {
+    const mid = (low + high) / 2;
+    if (inside(offsetX * mid, offsetY * mid)) low = mid;
+    else high = mid;
+  }
+  return low;
+}
+
 // 爪子在屏幕上的划动轨迹，网页版用它把抓痕画到整块屏幕上。
 function clawPath(side, progress) {
   return point(140 + side * (48 + 21 * progress + 12 * progress * progress), 53 + 57 * progress);
@@ -271,7 +294,7 @@ export function drawCat(ctx, design, pose) {
     const tall = mix([7.9, 7.9, 10.6, 4.2]);
     const eyeY = eyeSide * mix([0, 0, 1.3, 0]) - 1;
     const pupilWidth = mix([3.5, 3.5, 3.2, 3.2]);
-    const pupilHeight = tall * 0.58;
+    const pupilHeight = tall * 0.5;
     const factor = (1 - pose.enjoying) * (1 - clamp(Math.max(pose.blink, 0.43 * grooming + 0.46 * lick), 0, 1));
     ctx.save();
     ctx.translate(eyeSide * 13, eyeY);
@@ -284,13 +307,13 @@ export function drawCat(ctx, design, pose) {
     ctx.fillStyle = COLORS.lime;
     ctx.fillRect(-wide, -tall, wide * 2, tall * 2);
     if (factor > 0.13) {
-      // 瞳孔必须留在眼睛里，否则向上看的时候会被切成月牙。
-      const slackX = Math.max(0, wide - pupilWidth);
-      const slackY = Math.max(0, tall - pupilHeight);
+      const offsetX = gaze.x * wide * 0.55;
+      const offsetY = gaze.y * tall * 0.5;
+      const fit = pupilFit(wide, tall, pupilWidth, pupilHeight, offsetX, offsetY);
       ink.oval(
         COLORS.fur,
-        clamp(gaze.x * slackX, -slackX, slackX) - pupilWidth,
-        clamp(gaze.y * slackY, -slackY, slackY) - pupilHeight,
+        offsetX * fit - pupilWidth,
+        offsetY * fit - pupilHeight,
         pupilWidth * 2,
         pupilHeight * 2
       );

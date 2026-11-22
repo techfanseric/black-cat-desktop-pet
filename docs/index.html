@@ -22,18 +22,25 @@
 
   <main id="top">
     <section class="hero">
-      <div class="intro">
-        <p class="eyebrow">macOS 桌面宠物 · v2.2.0 · 免费开源</p>
-        <h1>右下角有只猫，<br><span>陪你一起加班。</span></h1>
-        <p class="lead">它是一只占屏幕不到 1% 的小黑猫，待在你的桌面角落。你打字它跟着敲，你动鼠标它跟着伸手，你想摸它，就把指针放到它脑袋上。</p>
-        <div class="cta">
-          <a class="button primary" href="#download">下载 Mac 版</a>
-          <a class="button" href="#play">先在线玩一下</a>
+      <div class="hero-top">
+        <div class="intro">
+          <p class="eyebrow">macOS 桌面宠物 · v2.2.0 · 免费开源</p>
+          <h1>右下角有只猫，<br><span>陪你一起加班。</span></h1>
+          <p class="lead">它是一只占屏幕不到 1% 的小黑猫，待在你的桌面角落。你打字它跟着敲，你动鼠标它跟着伸手，你想摸它，就把指针放到它脑袋上。</p>
+          <div class="cta">
+            <a class="button primary" href="#download">下载 Mac 版</a>
+            <a class="button" href="#play">先在线玩一下</a>
+          </div>
+          <p class="fine">macOS 13+ · Apple Silicon / Intel · 无广告 · 无账号</p>
         </div>
-        <p class="fine">macOS 13+ · Apple Silicon / Intel · 无广告 · 无账号</p>
+        <ul class="hero-facts">
+          <li><b>不接管操作</b><span>只监听不拦截，你的键鼠还是你的。</span></li>
+          <li><b>可拖可穿透</b><span>按住猫身挪窝，点击直接落到后面的窗口。</span></li>
+          <li><b>菜单栏可隐藏</b><span>不想要那个 🐾 图标就关掉，右键猫身能叫回来。</span></li>
+        </ul>
       </div>
 
-      <!-- 用一个缩小的桌面缩略图，交代它到底待在哪儿 -->
+      <!-- 一整块桌面缩略图，交代它到底待在哪儿 -->
       <div class="hero-desk">
         <div class="desk-screen">
           <div class="desk-wallpaper"></div>
@@ -44,13 +51,9 @@
           </div>
           <div class="desk-pet" id="hero-pet">
             <canvas id="hero-canvas" width="300" height="260" aria-label="待在桌面角落的黑猫，会跟着你敲键盘"></canvas>
-            <div class="hero-typepad" id="hero-typepad">
-              <span class="hero-typepad-text"></span>
-              <span class="typepad-caret"></span>
-            </div>
           </div>
         </div>
-        <p class="hero-caption">它就坐在这里 —— 右下角，不挡任何东西。挪个位置？按住它拖就行。</p>
+        <p class="hero-caption">它就坐在这里 —— 右下角，不挡任何东西。挪个位置？按住它拖就行。把指针移到它身上试试。</p>
       </div>
     </section>
 
@@ -106,12 +109,6 @@
             <canvas id="pet-overlay" class="overlay-canvas" aria-hidden="true"></canvas>
             <canvas id="pet-canvas" width="840" height="600" tabindex="0" aria-label="黑猫互动画布，点击后可以直接敲键盘"></canvas>
             <div class="hint" id="hint">点击画面，然后随便敲键盘</div>
-            <div class="typepad" id="typepad" aria-live="polite">
-              <span class="typepad-label">它看到的你</span>
-              <span class="typepad-text" id="typepad-text"></span>
-              <span class="typepad-caret"></span>
-            </div>
-            <div class="pet-bubble" id="pet-bubble" aria-hidden="true"></div>
           </div>
           <div class="screen-foot">
             <div class="status">
